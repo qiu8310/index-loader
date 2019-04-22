@@ -1,0 +1,10 @@
+{
+  "Swipe": "swipe/~S",
+  "SwipeItem": "swipe/",
+  "Marquee": "marquee/~default",
+  "TabContainer": "tab-container/",
+  "TabContainerItem": "tab-container/",
+  "Sticker": "sticker/~default",
+  "Indicator": "indicator/~default",
+  "Toast": "toast/~default"
+}

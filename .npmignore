@@ -8,6 +8,10 @@ node_modules
 src
 !res/pack/*
 
+.dtpl
+.vscode
+__tests__
+jest.config.js
 # 一些和当前项目无关的系统文件
 .AppleDouble
 .DS_Store

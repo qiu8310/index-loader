@@ -1,6 +1,6 @@
-# @durka/example-ts-node-no-durka
+# index-loader
 
-typescript node project
+根据 map 文件按需加载需要的脚本
 
 
 ## Installation
@@ -8,12 +8,33 @@ typescript node project
 再运行下面命令创建新项目
 
 ```bash
-durka init --templateName @durka/example-ts-node-no-durka
+npm i --save-dev index-loader
 ```
 
 ## Usage
 
+```js
+// webpack.config.js
 
+{
+  loader: 'index-loader',
+  options: {
+    debug: false, // 输出调试信息（全局）
+    targets: [
+      {
+        name: 'antd',
+        mapFile: 'path/to/map/file', // 需要是绝对路径
+        debug: false,
+        additional(src, variables) {
+          return `import "xxx.css"`
+        }
+      }
+    ]
+
+  }
+}
+
+```
 
 
 ## Support

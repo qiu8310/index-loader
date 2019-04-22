@@ -1,0 +1,26 @@
+vendor
+coverage
+node_modules
+.env
+.cache
+*.log
+
+src
+!res/pack/*
+
+# 一些和当前项目无关的系统文件
+.AppleDouble
+.DS_Store
+.localized
+.LSOverride
+.Spotlight-V100
+.Trashes
+.idea
+_ignore
+__ignore
+*.sw[a-z]
+.netrwhist
+Session.vim
+Desktop.ini
+ehthumbs.db
+Thumbs.db

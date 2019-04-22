@@ -1,0 +1,37 @@
+{
+  "name": "index-loader",
+  "version": "0.0.0",
+  "description": "根据 map 文件按需加载需要的脚本",
+  "main": "dist/index.js",
+  "scripts": {
+    "lint": "eslint --ext .js,.jsx,.ts,.tsx ./src",
+    "test": "jest",
+    "test:watch": "jest --watchAll",
+    "build": "tsc",
+    "build:watch": "tsc -w",
+    "prepare": "npm run lint && npm run test && npm run build"
+  },
+  "engineStrict": true,
+  "engines": {
+    "node": ">=8.6.0 < 11.0.0",
+    "npm": ">=6.0.0"
+  },
+  "author": "Mora <qiuzhongleiabc@126.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jest": "~24.0.11",
+    "@types/node": "~8.10.45",
+    "@typescript-eslint/eslint-plugin": "~1.6.0",
+    "@typescript-eslint/parser": "~1.6.0",
+    "eslint": "~5.16.0",
+    "eslint-config-prettier": "~4.1.0",
+    "eslint-plugin-prettier": "~3.0.1",
+    "jest": "~24.7.1",
+    "prettier": "~1.16.4",
+    "ts-jest": "~24.0.2",
+    "typescript": "~3.4.3"
+  },
+  "dependencies": {
+    "tslib": "^1.9.3"
+  }
+}

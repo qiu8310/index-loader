@@ -38,6 +38,7 @@
     "typescript": "~3.4.3"
   },
   "dependencies": {
+    "@mora/module-parse": "0.0.4",
     "loader-utils": "~1.2.3",
     "tslib": "^1.9.3"
   }

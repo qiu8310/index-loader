@@ -14,7 +14,7 @@ module.exports = {
   // collectCoverageFrom: [
   //   "<rootDir>/src/**/*.{js,jsx,ts,tsx}"
   // ],
-  coveragePathIgnorePatterns: ['/node_modules/', '/__tests__/helper/'],
+  coveragePathIgnorePatterns: ['/node_modules/', '/__tests__/'],
   coverageThreshold: {
     // with the following configuration jest will fail
     // if there is less than 90% branch, line, and function

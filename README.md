@@ -23,7 +23,14 @@ npm i --save-dev index-loader
     targets: [
       {
         name: 'antd',
-        mapFile: 'path/to/map/file', // 需要是绝对路径
+        // 几个 File 只需要选一个即可
+        // 如果使用了 moduleFile / esModuleFile / commonModuleFile，系统会自动解析出 mapFile
+        mapFile: 'path/to/map/file.json', // 需要是绝对路径
+
+        moduleFile: 'path/to/module/file.js',   // 解析 require / exports 和 import / export
+        esModuleFile: 'path/to/es/module/file.js',  // 解析 import / export
+        commonModuleFile: 'path/to/common/module/file.js', // 解析 require / exports
+
         debug: false,
         additional(src, variables) {
           return `import "xxx.css"`
@@ -34,6 +41,28 @@ npm i --save-dev index-loader
   }
 }
 
+```
+
+## Map File Example
+
+```json
+{
+  "Swipe": "swipe/~S",
+  "SwipeItem": "swipe/",
+  "Marquee": "marquee/~default",
+  "TabContainer": "tab-container/",
+  "TabContainerItem": "tab-container/",
+  "Sticker": "sticker/~default",
+  "Indicator": "indicator/~default",
+  "Toast": "toast/~default"
+}
+```
+
+## TODO
+
+```js
+import Test from 'antd'
+// 需要支持解析 antd 中的 default export 或 module.exports =
 ```
 
 
@@ -49,7 +78,7 @@ If you have ideas for releases in the future, it is a good idea to list them in 
 
 ## Changelog
 
-[Changelog][./CHANGELOG.md]
+[Changelog](./CHANGELOG.md)
 
 
 ## Contributing

@@ -37,11 +37,13 @@ export interface FileOptions {
   pathResolver: PathResolver
   /** 项目根目录 */
   root: string
+  entry: string
 }
 export class File {
   static resolveCache: Record<string, File> = {}
   static getInstance = (src: string) => File.resolveCache[src]
 
+  isEntry = false
   exports: ({ fromSrc?: string; local: string; exported: string })[] = []
   exportsAllFrom: string[] = []
   exportsEsnextDefault: boolean = false
@@ -148,6 +150,7 @@ export class File {
   constructor(public src: string, public options: FileOptions) {
     // 先设置成 resolve 标识
     File.resolveCache[src] = this
+    this.isEntry = src === options.entry
     this.parse()
   }
 
@@ -190,7 +193,7 @@ export class File {
       const exportsMap = importFile.getExports()
       if (exportsMap.hasOwnProperty(it.imported)) {
         const ref = exportsMap[it.imported]
-        add({ src: ref.src, imported: ref.exported, local: it.local })
+        add({ src: ref.src, imported: ref.srcExported || ref.exported, local: it.local })
       } else {
         warn(`${this.getRelative()} import variable "${it.imported}" not exists in ${this.getRelative(it.fromSrc)}`)
       }
@@ -256,20 +259,12 @@ export class File {
           const ref = importsMap[local]
           fromSrc = ref.src
           local = ref.imported // ref.imported 有可能是 '*' （import * as xx from './xx')
-
-          /// === default
-          // import A from './src'
-          // export { A }
-          if (local === 'default') {
-          }
         }
       }
 
       if (fromSrc) {
         const file = File.getInstance(fromSrc)
         const exportsMap = file.getExports()
-        console.log(this.src, local)
-        console.log(exportsMap)
 
         /*
           a.js:
@@ -289,7 +284,7 @@ export class File {
           add({ src: fromSrc, exported, srcExported: '*' })
         } else if (exportsMap.hasOwnProperty(local)) {
           const ref = exportsMap[local]
-          add({ src: ref.src, exported, srcExported: ref.exported })
+          add({ src: ref.src, exported, srcExported: ref.srcExported || ref.exported })
         } else {
           warn(`${this.getRelative()} export variable "${exported}" not exists in ${this.getRelative(fromSrc)}`)
         }
@@ -297,7 +292,6 @@ export class File {
         add({ src: this.src, exported })
       }
     })
-
     return result
   }
 }

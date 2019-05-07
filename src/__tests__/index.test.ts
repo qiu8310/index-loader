@@ -1,4 +1,4 @@
-import loader from '../index'
+import loader from '../loader'
 import webpack = require('webpack')
 import path = require('path')
 

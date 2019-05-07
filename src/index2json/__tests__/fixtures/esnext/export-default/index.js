@@ -1,3 +1,3 @@
-import { A } from './inc2'
+import { A } from './inc'
 
 export default A

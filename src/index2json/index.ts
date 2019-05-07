@@ -4,7 +4,7 @@ import { FileOptions, File } from './File'
 import { PathResolver } from './PathResolver'
 
 type Omit<O, K> = Pick<O, Exclude<keyof O, K>>
-export interface Options extends Omit<FileOptions, 'root' | 'pathResolver'> {
+export interface Options extends Omit<FileOptions, 'root' | 'pathResolver' | 'entry'> {
   glue?: string
   pathResolver?: PathResolver
 }
@@ -21,7 +21,7 @@ export function index2json(src: string, options: Options = {}) {
     const r2 = /^(module|exports)\b/m.test(content)
     useModule = r1 && r2 ? 'both' : r1 ? 'esnext' : r2 ? 'commonjs' : 'both'
   }
-  const file = new File(src, { ...options, pathResolver, root, module: useModule })
+  const file = new File(src, { ...options, pathResolver, entry: src, root, module: useModule })
   const result = file.getExports()
 
   const json: Record<string, string> = {}
@@ -56,13 +56,8 @@ export function index2json(src: string, options: Options = {}) {
   return json
 }
 
-// console.log(index2json('/Users/Mora/Workspace/ypp/admin/node_modules/antd/es/row/index.js', { module: 'esnext' }))
+const root = path.resolve(__dirname, '..', '..')
+const opts: Options = { module: 'esnext' }
 
-console.log(
-  index2json(
-    '/Users/Mora/Workspace/ypp/index-loader/src/index2json/__tests__/fixtures/esnext/export-default/index.js',
-    {
-      module: 'esnext'
-    }
-  )
-)
+// console.log(index2json(root + '/node_modules/antd/es/index.js', opts))
+console.log(index2json(root + '/src/index2json/__tests__/fixtures/esnext/cycle-import/index.js', opts))

@@ -38,7 +38,6 @@ export interface FileOptions {
   /** 项目根目录 */
   root: string
 }
-
 export class File {
   static resolveCache: Record<string, File> = {}
   static getInstance = (src: string) => File.resolveCache[src]
@@ -67,7 +66,9 @@ export class File {
 
   resolve(node: { src: string }, cb: (file: File) => void) {
     const file = this.getRequiredFile(node)
-    if (file) cb(file)
+    if (file) {
+      cb(file)
+    }
   }
 
   getRelative(src: string = this.src) {
@@ -107,6 +108,10 @@ export class File {
         this.exportsEsnextDefault = true
         break
       }
+      case N.EXPORT_ASSIGN: {
+        this.exports.push({ exported: node.exported, local: node.exported })
+        break
+      }
       case N.EXPORT_NAMED: {
         node.variables.forEach(({ local, exported }) => {
           this.exports.push({ exported, local })
@@ -143,7 +148,6 @@ export class File {
   constructor(public src: string, public options: FileOptions) {
     // 先设置成 resolve 标识
     File.resolveCache[src] = this
-
     this.parse()
   }
 
@@ -158,6 +162,8 @@ export class File {
   getImports() {
     if (this.__imports) return this.__imports
     const result: Record<string, ImportEntry> = {}
+    this.__imports = result
+
     const add = (entry: ImportEntry) => {
       if (result.hasOwnProperty(entry.local)) {
         warn(`import entry "${entry.local}" already exists in ${this.getRelative()}, ignored`)
@@ -165,7 +171,6 @@ export class File {
         result[entry.local] = entry
       }
     }
-
     this.imports.forEach(it => {
       /*
         a.js
@@ -199,13 +204,14 @@ export class File {
         local: it.local
       })
     })
-    this.__imports = result
     return result
   }
 
   getExports() {
     if (this.__exports) return this.__exports
     const result: Record<string, ExportEntry> = {}
+    this.__exports = result
+
     const recursive = this.options.recursive !== false
 
     const add = (entry: ExportEntry) => {
@@ -232,7 +238,6 @@ export class File {
 
     this.exports.forEach(it => {
       let { exported, local, fromSrc } = it
-
       if (recursive) {
         /*
         import { Foo as Bar } from './a'
@@ -251,12 +256,21 @@ export class File {
           const ref = importsMap[local]
           fromSrc = ref.src
           local = ref.imported // ref.imported 有可能是 '*' （import * as xx from './xx')
+
+          /// === default
+          // import A from './src'
+          // export { A }
+          if (local === 'default') {
+          }
         }
       }
 
       if (fromSrc) {
         const file = File.getInstance(fromSrc)
         const exportsMap = file.getExports()
+        console.log(this.src, local)
+        console.log(exportsMap)
+
         /*
           a.js:
           export { Tar as Foo }
@@ -284,7 +298,6 @@ export class File {
       }
     })
 
-    this.__exports = result
     return result
   }
 }

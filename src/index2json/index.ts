@@ -56,10 +56,13 @@ export function index2json(src: string, options: Options = {}) {
   return json
 }
 
-// console.log(index2json('/Users/Mora/Workspace/ypp/admin/node_modules/antd/es/index.js', { module: 'esnext' }))
+// console.log(index2json('/Users/Mora/Workspace/ypp/admin/node_modules/antd/es/row/index.js', { module: 'esnext' }))
 
-// console.log(
-//   index2json('/Users/Mora/Workspace/ypp/index-loader/src/index2json/__tests__/fixtures/warn/repeat-import/index.js', {
-//     module: 'esnext'
-//   })
-// )
+console.log(
+  index2json(
+    '/Users/Mora/Workspace/ypp/index-loader/src/index2json/__tests__/fixtures/esnext/export-default/index.js',
+    {
+      module: 'esnext'
+    }
+  )
+)

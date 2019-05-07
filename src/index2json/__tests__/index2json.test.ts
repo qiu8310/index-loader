@@ -17,7 +17,9 @@ readdir(fixtures).forEach(group => {
 
         const root = path.join(fixtures, group, name)
         const useModule = ['esnext', 'commonjs'].includes(group)
-        const opts = useModule ? { module: group as 'both' } : {}
+        let opts = useModule ? { module: group as 'both' } : undefined
+        const optsFile = path.join(root, 'options.js')
+        if (fs.existsSync(optsFile)) opts = { ...opts, ...require(optsFile) }
         const json = index2json(path.join(root, 'index.js'), opts)
 
         if (group === 'warn') {

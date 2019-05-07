@@ -19,7 +19,6 @@ export interface ImportEntry {
 export type Node = ReturnType<typeof parse>['nodes'][0]
 
 export interface FileOptions {
-  pathResolver?: PathResolver
   module?: 'esnext' | 'commonjs' | 'both'
   /**
    * 代码中经常会出现下面这种情况：
@@ -35,6 +34,7 @@ export interface FileOptions {
    */
   recursive?: boolean
 
+  pathResolver: PathResolver
   /** 项目根目录 */
   root: string
 }
@@ -56,7 +56,7 @@ export class File {
 
   /** 获取依赖的文件 */
   getRequiredFile(node: { src: string }) {
-    const resolver = this.options.pathResolver || new PathResolver()
+    const resolver = this.options.pathResolver
     const src = resolver.resolve(node.src, this.src)
     if (src) {
       if (!File.resolveCache[src]) File.resolveCache[src] = new File(src, this.options)

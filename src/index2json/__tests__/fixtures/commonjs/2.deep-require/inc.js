@@ -1,4 +1,3 @@
-require('not_use')
 module.exports = {}
 
 exports.A = 1

@@ -4,8 +4,9 @@ import { FileOptions, File } from './File'
 import { PathResolver } from './PathResolver'
 
 type Omit<O, K> = Pick<O, Exclude<keyof O, K>>
-export interface Options extends Omit<FileOptions, 'root'> {
+export interface Options extends Omit<FileOptions, 'root' | 'pathResolver'> {
   glue?: string
+  pathResolver?: PathResolver
 }
 
 export function index2json(src: string, options: Options = {}) {
@@ -38,7 +39,7 @@ export function index2json(src: string, options: Options = {}) {
 
         // 下面两条只有入口文件才会存在，非入口文件不可能出现
         default: 'file'   // import X from 'file'               const X = require('file').default
-        *: 'file'         //                                    const X = require('file')
+        *: 'file'         // import * as X from 'file'          const X = require('file')
       }
      */
     if ((!exp.srcExported || exp.exported === exp.srcExported) && exp.srcExported !== 'default') {

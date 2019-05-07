@@ -1,119 +1,45 @@
-import path = require('path')
-import webpack = require('webpack')
-import utils = require('loader-utils')
+import * as loaderUtils from 'loader-utils'
 
-interface Target {
-  debug: boolean
-  mapFile: string
-  name: string
-  additional?: (src: string, variables: string[]) => void | string | string[]
+import { replacer, IReplacerModule } from './replacer'
+
+export interface IIndexLoaderQuery {
+  realtimeParse?: boolean
+  debug?: boolean
+  modules?: (string | IReplacerModule)[]
 }
 
-const getExportImportExpReg: (name: string) => RegExp = (() => {
-  let cache: { [key: string]: RegExp } = {}
-  return (name: string) => {
-    if (!cache[name])
-      cache[name] = new RegExp(`^([ \\t]*)(import|export)\\s+\\{([^}]+)\\}\\s+from\\s+(['"])${name}\\4`, 'mg')
-    return cache[name]
-  }
-})()
+/*
+  可配置成：
+    {
+      debug: false,             // 输出调试信息
+      realtimeParse: false,     // 设置全局默认值，主要看 modules 内的值
+      modules: [
+        'antd',                 // 可以只配置单个名称，或者下面的详细信息
 
-export default function loader(this: webpack.loader.LoaderContext, content: string) {
-  const { targets = [], ...rest } = utils.getOptions(this)
-  const allTargets: Target[] = targets.map((t: any) => {
-    return {
-      debug: false,
-      ...rest,
-      ...t
+        {
+          name: 'antd',
+          root: 'path/to/antd/root'
+          dtsFile: 'path/to/xxx2.d.ts',     // 指定当前模块所对应的 .d.ts 或 .ts 文件所在位置，用于生成 d.json，默认从 node_modules/xxx2 下找
+          djsonFile: 'path/to/xxx2.d.json', // 指定模块所对应的 .d.json 文件路径，默认情况下会自动查找，可以不配置
+          debug: true,
+          realtimeParse: true               // 表示实时分析出模块所对应的 d.json 文件导出的变量，启用后会影响 webpack 编译速度
+        }
+      ]
     }
-  })
-  return replaceAll(this.resourcePath, content, allTargets)
-}
+*/
+export default function(this: any, content: string) {
+  if (this.cacheable) this.cacheable()
 
-function replaceAll(filename: string, content: string, targets: Target[]) {
-  return targets.reduce((result: string, target) => {
-    const regexp = getExportImportExpReg(target.name)
+  let query: IIndexLoaderQuery = loaderUtils.getOptions(this) || {}
 
-    return result.replace(
-      regexp,
-      (raw: string, preSpaces: string, inOut: string, namedObject: string, quote: string) => {
-        const map = require(target.mapFile)
-        const result: { [src: string]: string[] } = {}
-        parseNamedObject(namedObject).forEach(obj => {
-          if (!map.hasOwnProperty(obj.key)) {
-            throw new Error(`There is no "${obj.key}" module in package "${target.name}"`)
-          }
-          let [file, alias] = map[obj.key].split('~')
-          file = path.resolve(path.dirname(target.mapFile), file)
-          let src = file.replace(/\\/g, '/')
-          if (src.indexOf('/node_modules/') >= 0) {
-            src = src.substr(src.indexOf('/node_modules/') + '/node_modules/'.length)
-          }
+  let debug = query.debug || false
+  let realtimeParse = query.realtimeParse || false
 
-          const from = alias || obj.key
-          const to = obj.as || obj.key
-          const item = from === to ? from : `${from} as ${to}`
+  let modules: IReplacerModule[] = (query.modules || []).map(m => ({
+    debug,
+    realtimeParse,
+    ...(typeof m === 'string' ? { name: m } : m)
+  }))
 
-          if (!result[src]) result[src] = []
-          if (!result[src].includes(item)) {
-            result[src].push(item)
-          }
-        })
-
-        const rows = Object.keys(result)
-          .reduce(
-            (all, src) => {
-              const variables = result[src]
-              if (variables.length) {
-                all.push(`${preSpaces}${inOut} { ${variables.join(', ')} } from ${quote}${src}${quote}`)
-              }
-              const extra = target.additional && target.additional(src, variables)
-              if (Array.isArray(extra)) {
-                all.push(...extra)
-              } else if (typeof extra === 'string') {
-                all.push(extra)
-              }
-              return all
-            },
-            [] as string[]
-          )
-          .join('\n')
-
-        if (target.debug) {
-          debug(`---------- ${filename} -----------`)
-          debug(`REPLACE [${raw}] WITH\n${rows}`)
-        }
-
-        return rows
-      }
-    )
-  }, content)
-}
-
-function parseNamedObject(str: string) {
-  return stripInlineComment(str)
-    .trim()
-    .split(',')
-    .reduce(
-      (res, part) => {
-        part = part.trim()
-        if (part) {
-          const [key, as] = part.split(/\s+as\s+/)
-          res.push({ key, as })
-        }
-        return res
-      },
-      [] as ({ key: string; as?: string })[]
-    )
-}
-
-/**
- * 祛除单行中的注释
- */
-function stripInlineComment(line: string): string {
-  return line.replace(/\/\*.*?\*\//g, '')
-}
-
-function debug(msg: string) {
-  console.log('\x1b[36m' + msg + '\x1b[0m')
+  return replacer(this.resourcePath, content, modules).replacedContent
 }

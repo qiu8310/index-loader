@@ -2,9 +2,10 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { FileOptions, File } from './File'
 import { PathResolver } from './PathResolver'
+import { warn } from './helper'
 
 type Omit<O, K> = Pick<O, Exclude<keyof O, K>>
-export interface Options extends Omit<FileOptions, 'root' | 'pathResolver' | 'entry'> {
+export interface Options extends Omit<FileOptions, 'root' | 'pathResolver' | 'entry' | 'warnings' | 'isRepeat'> {
   glue?: string
   pathResolver?: PathResolver
 }
@@ -21,8 +22,19 @@ export function index2json(src: string, options: Options = {}) {
     const r2 = /^(module|exports)\b/m.test(content)
     useModule = r1 && r2 ? 'both' : r1 ? 'esnext' : r2 ? 'commonjs' : 'both'
   }
-  const file = new File(src, { ...options, pathResolver, entry: src, root, module: useModule })
-  const result = file.getExports()
+  const file = new File(src, { ...options, pathResolver, entry: src, root, warnings: [], module: useModule })
+  let result = file.getExports()
+
+  // 解决循环引用的问题
+  if (file.options.warnings.length) {
+    File.pruneForRepeat()
+    file.options.isRepeat = true
+    file.options.warnings.length = 0
+
+    result = file.getExports()
+
+    file.options.warnings.forEach(w => warn(w))
+  }
 
   const json: Record<string, string> = {}
   const glue = options.glue || '~'
@@ -56,8 +68,11 @@ export function index2json(src: string, options: Options = {}) {
   return json
 }
 
-const root = path.resolve(__dirname, '..', '..')
-const opts: Options = { module: 'esnext' }
-
+// const root = path.resolve(__dirname, '..', '..')
+// const opts: Options = { module: 'esnext' }
 // console.log(index2json(root + '/node_modules/antd/es/index.js', opts))
-console.log(index2json(root + '/src/index2json/__tests__/fixtures/esnext/cycle-import/index.js', opts))
+
+// const test = 'warn/import-not-exists'
+// const root = path.resolve(__dirname, '..', '..')
+// const opts: Options = { module: 'esnext' }
+// console.log(index2json(`${root}/src/index2json/__tests__/fixtures/${test}/index.js`, opts))

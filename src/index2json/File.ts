@@ -35,12 +35,22 @@ export interface FileOptions {
   recursive?: boolean
 
   pathResolver: PathResolver
+
+  // 下面三项是内部用的配置
   /** 项目根目录 */
   root: string
+  /** 入口文件 */
   entry: string
+  /** 记录所有警告 */
+  warnings: string[]
+  /** 是否是重新解析（解决循环引用问题） */
+  isRepeat?: boolean
 }
 export class File {
   static resolveCache: Record<string, File> = {}
+  static pruneForRepeat = () => {
+    Object.keys(File.resolveCache).forEach(k => File.resolveCache[k].pruneForRepeat())
+  }
   static getInstance = (src: string) => File.resolveCache[src]
 
   isEntry = false
@@ -52,30 +62,10 @@ export class File {
   importsAll: ({ fromSrc: string; local: string })[] = []
   imports: ({ fromSrc: string; local: string; imported: string })[] = []
 
-  private __imports?: Record<string, ImportEntry>
-  private __exports?: Record<string, ExportEntry>
-
-  /** 获取依赖的文件 */
-  getRequiredFile(node: { src: string }) {
-    const resolver = this.options.pathResolver
-    const src = resolver.resolve(node.src, this.src)
-    if (src) {
-      if (!File.resolveCache[src]) File.resolveCache[src] = new File(src, this.options)
-      return File.resolveCache[src]
-    }
-    return null
-  }
-
-  resolve(node: { src: string }, cb: (file: File) => void) {
-    const file = this.getRequiredFile(node)
-    if (file) {
-      cb(file)
-    }
-  }
-
-  getRelative(src: string = this.src) {
-    return `"${path.relative(this.options.root, src)}"`
-  }
+  private __imports?: Record<string, ImportEntry> | null
+  private __exports?: Record<string, ExportEntry> | null
+  __hasImportWarn = false
+  __hasExportWarn = false
 
   parseInNode = (node: Node) => {
     switch (node.type) {
@@ -150,8 +140,32 @@ export class File {
   constructor(public src: string, public options: FileOptions) {
     // 先设置成 resolve 标识
     File.resolveCache[src] = this
+
     this.isEntry = src === options.entry
     this.parse()
+  }
+
+  /** 获取依赖的文件 */
+  getRequiredFile(node: { src: string }) {
+    const resolver = this.options.pathResolver
+    const src = resolver.resolve(node.src, this.src)
+    if (src) {
+      if (!File.resolveCache[src]) File.resolveCache[src] = new File(src, this.options)
+      const file = File.resolveCache[src]
+      return file
+    }
+    return null
+  }
+
+  resolve(node: { src: string }, cb: (file: File) => void) {
+    const file = this.getRequiredFile(node)
+    if (file) {
+      cb(file)
+    }
+  }
+
+  getRelative(src: string = this.src) {
+    return `"${path.relative(this.options.root, src)}"`
   }
 
   parse() {
@@ -162,6 +176,12 @@ export class File {
     nodes.forEach(this.parseOutNode)
   }
 
+  pruneForRepeat() {
+    // export 会触发寻找 import，所以有 import 错误，exports 也要清空
+    if (this.__hasExportWarn || this.__hasImportWarn) this.__exports = null
+    if (this.__hasImportWarn) this.__imports = null
+  }
+
   getImports() {
     if (this.__imports) return this.__imports
     const result: Record<string, ImportEntry> = {}
@@ -169,7 +189,9 @@ export class File {
 
     const add = (entry: ImportEntry) => {
       if (result.hasOwnProperty(entry.local)) {
-        warn(`import entry "${entry.local}" already exists in ${this.getRelative()}, ignored`)
+        if (!this.options.isRepeat) {
+          warn(`import entry "${entry.local}" already exists in ${this.getRelative()}, ignored`)
+        }
       } else {
         result[entry.local] = entry
       }
@@ -195,7 +217,10 @@ export class File {
         const ref = exportsMap[it.imported]
         add({ src: ref.src, imported: ref.srcExported || ref.exported, local: it.local })
       } else {
-        warn(`${this.getRelative()} import variable "${it.imported}" not exists in ${this.getRelative(it.fromSrc)}`)
+        this.__hasImportWarn = true
+        this.options.warnings.push(
+          `${this.getRelative()} import variable "${it.imported}" not exists in ${this.getRelative(it.fromSrc)}`
+        )
       }
     })
 
@@ -219,7 +244,9 @@ export class File {
 
     const add = (entry: ExportEntry) => {
       if (result.hasOwnProperty(entry.exported)) {
-        warn(`export entry "${entry.exported}" already exists in ${this.getRelative()}, ignored`)
+        if (!this.options.isRepeat) {
+          warn(`export entry "${entry.exported}" already exists in ${this.getRelative()}, ignored`)
+        }
       } else {
         result[entry.exported] = entry
       }
@@ -286,7 +313,10 @@ export class File {
           const ref = exportsMap[local]
           add({ src: ref.src, exported, srcExported: ref.srcExported || ref.exported })
         } else {
-          warn(`${this.getRelative()} export variable "${exported}" not exists in ${this.getRelative(fromSrc)}`)
+          this.__hasExportWarn = true
+          this.options.warnings.push(
+            `${this.getRelative()} export variable "${exported}" not exists in ${this.getRelative(fromSrc)}`
+          )
         }
       } else {
         add({ src: this.src, exported })

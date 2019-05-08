@@ -13,9 +13,9 @@ npm i --save-dev index-loader
 
 ## Usage
 
+
 ```js
 // webpack.config.js
-
 {
   loader: 'index-loader',
   options: {
@@ -23,14 +23,7 @@ npm i --save-dev index-loader
     targets: [
       {
         name: 'antd',
-        // 几个 File 只需要选一个即可
-        // 如果使用了 moduleFile / esModuleFile / commonModuleFile，系统会自动解析出 mapFile
-        mapFile: 'path/to/map/file.json', // 需要是绝对路径
-
-        moduleFile: 'path/to/module/file.js',   // 解析 require / exports 和 import / export
-        esModuleFile: 'path/to/es/module/file.js',  // 解析 import / export
-        commonModuleFile: 'path/to/common/module/file.js', // 解析 require / exports
-
+        entryFile: 'path/to/es/antd.js', // 需要是绝对路径
         debug: false,
         additional(src, variables) {
           return `import "xxx.css"`
@@ -40,7 +33,47 @@ npm i --save-dev index-loader
 
   }
 }
+```
 
+```ts
+export type Target = MapTarget | ModuleTarget
+
+interface BaseTarget {
+  name: string
+  /** 输出替换信息 */
+  debug?: boolean
+  /** 添加额外的代码 */
+  additional?: (src: string, variables: string[], target: ResolvedTarget) => void | string | string[]
+  /** 获取依赖的相对路径（注意，最好返回 unix 系统的路径） */
+  getRequiredPath?: (
+    /**
+     * 依赖的变量名，如
+     * `import { A } from 'antd'` 中的 "A"
+     */
+    importedKey: string,
+    /**
+     * 当前所在的文件
+     */
+    contextFile: string,
+    /**
+     * 依赖的文件解析后的路径
+     */
+    requiredFile: string,
+    target: ResolvedTarget
+  ) => string
+}
+export interface MapTarget extends BaseTarget {
+  mapFile: string
+  /** 项目根目录，默认使用 mapFile 的目录 */
+  rootDir?: string
+}
+export interface ModuleTarget extends BaseTarget {
+  /** entry file 的 module 类型 */
+  entryModule?: 'esnext' | 'commonjs' | 'both'
+  entryFile: string
+  /** 是否缓存生成的 map 信息 */
+  cache?: boolean
+}
 ```
 
 ## Map File Example
@@ -56,13 +89,6 @@ npm i --save-dev index-loader
   "Indicator": "indicator/~default",
   "Toast": "toast/~default"
 }
-```
-
-## TODO
-
-```js
-import Test from 'antd'
-// 需要支持解析 antd 中的 default export 或 module.exports =
 ```
 
 

@@ -1,4 +1,5 @@
 node_modules
+!**/__tests__/fixtures/node_modules
 dist
 vendor
 coverage

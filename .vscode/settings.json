@@ -12,4 +12,9 @@
       "autoFix": true
     }
   ],
+  "files.exclude": {
+    "**/node_modules": false,
+    "node_modules": true,
+    "**/__tests__/**/node_modules": false
+  },
 }

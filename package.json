@@ -1,6 +1,6 @@
 {
   "name": "index-loader",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "根据 map 文件按需加载需要的脚本",
   "main": "dist/loader.js",
   "bin": {

@@ -78,8 +78,7 @@ export default function loader(this: webpack.loader.LoaderContext, content: stri
   const additional = () => {}
   const allTargets: ResolvedTarget[] = targets.map(t => {
     const basic = {
-      debug: false,
-      ...rest,
+      debug: (t.hasOwnProperty('debug') ? t.debug : rest.debug) || false,
       name: t.name,
       additional: t.additional || rest.additional || additional,
       getRequiredPath: t.getRequiredPath || getRequiredPath

@@ -6,8 +6,12 @@ import { warn } from './helper'
 
 type Omit<O, K> = Pick<O, Exclude<keyof O, K>>
 export interface Options extends Omit<FileOptions, 'root' | 'pathResolver' | 'entry' | 'warnings' | 'isRepeat'> {
+  /** 生成的 json 中路径和别名中间的连接符，默认为 "~" */
   glue?: string
+  /** 路径解析器 */
   pathResolver?: PathResolver
+  /** 是否保留生成的 json 值中的路径的文件中的后缀 */
+  reserveExtension?: boolean
 }
 
 export function index2json(src: string, options: Options = {}) {
@@ -54,10 +58,12 @@ export function index2json(src: string, options: Options = {}) {
         *: 'file'         // import * as X from 'file'          const X = require('file')
       }
      */
+    const exportPath = (options.reserveExtension ? relative : relative.replace(/\.js$/, '')).replace(/\\/g, '/')
+
     if ((!exp.srcExported || exp.exported === exp.srcExported) && exp.srcExported !== 'default') {
-      json[exp.exported] = relative
+      json[exp.exported] = exportPath
     } else {
-      json[exp.exported] = relative + glue + exp.srcExported
+      json[exp.exported] = exportPath + glue + exp.srcExported
     }
   })
 
@@ -69,7 +75,7 @@ export function index2json(src: string, options: Options = {}) {
 }
 
 // const root = path.resolve(__dirname, '..', '..')
-// const opts: Options = { module: 'esnext' }
+// const opts: Options = { module: 'both' }
 // console.log(index2json(root + '/node_modules/antd/es/index.js', opts))
 
 // const test = 'warn/import-not-exists'

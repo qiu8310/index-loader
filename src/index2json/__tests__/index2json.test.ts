@@ -20,7 +20,7 @@ readdir(fixtures).forEach(group => {
         let opts = useModule ? { module: group as 'both' } : undefined
         const optsFile = path.join(root, 'options.js')
         if (fs.existsSync(optsFile)) opts = { ...opts, ...require(optsFile) }
-        const json = index2json(path.join(root, 'index.js'), opts)
+        const json = index2json(path.join(root, 'index.js'), { reserveExtension: true, ...opts })
 
         if (group === 'warn') {
           const expected = require(path.join(root, 'index.json.js'))

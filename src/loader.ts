@@ -22,6 +22,11 @@ interface BaseTarget {
      */
     importedKey: string,
     /**
+     * 模块名，如
+     * `import { A } from 'antd'` 中的 "antd"
+     */
+    importFrom: string,
+    /**
      * 当前所在的文件
      */
     contextFile: string,
@@ -33,38 +38,22 @@ interface BaseTarget {
   ) => string
 }
 export interface MapTarget extends BaseTarget {
-  mapFile: string
+  mapFile: string | ((targetName: string) => string)
   /** 项目根目录，默认使用 mapFile 的目录 */
   rootDir?: string
 }
 export interface ModuleTarget extends BaseTarget {
   /** entry file 的 module 类型 */
   entryModule?: 'esnext' | 'commonjs' | 'both'
-  entryFile: string
+  entryFile: string | ((targetName: string) => string)
   /** 是否缓存生成的 map 信息 */
   cache?: boolean
   cacheFile?: string
 }
 
-function isMapTarget(t: Target): t is MapTarget {
-  return t.hasOwnProperty('mapFile')
-}
-function isModuleTarget(t: Target): t is ModuleTarget {
-  return t.hasOwnProperty('entryFile')
-}
-
-const getExportImportExpReg: (name: string) => RegExp = (() => {
-  let cache: { [key: string]: RegExp } = {}
-  return (name: string) => {
-    if (!cache[name])
-      cache[name] = new RegExp(`^([ \\t]*)(import|export)\\s+\\{([^}]+)\\}\\s+from\\s+(['"])${name}\\4`, 'mg')
-    return cache[name]
-  }
-})()
-
 interface ResolvedTarget extends Required<BaseTarget> {
-  json: Record<string, string>
-  rootDir: string
+  getJson: (targetName: string) => Record<string, string>
+  getRootDir: (targetName: string) => string
 }
 
 export interface IndexLoaderOptions {
@@ -72,6 +61,24 @@ export interface IndexLoaderOptions {
   additional?: BaseTarget['additional']
   targets: Target[]
 }
+
+function isMapTarget(t: Target): t is MapTarget {
+  return !!(t as MapTarget).mapFile
+}
+function isModuleTarget(t: Target): t is ModuleTarget {
+  return !!(t as ModuleTarget).entryFile
+}
+const getExportImportExpReg: (name: string) => RegExp = (() => {
+  let cache: { [key: string]: RegExp } = {}
+  return (name: string) => {
+    if (!cache[name])
+      cache[name] = new RegExp(`^([ \\t]*)(import|export)\\s+\\{([^}]+)\\}\\s+from\\s+(['"])(${name})\\4`, 'mg')
+    return cache[name]
+  }
+})()
+
+// for test
+export const JSON_MEMORY_CACHE: any = {}
 
 export default function loader(this: webpack.loader.LoaderContext, content: string) {
   const { targets = [], ...rest } = utils.getOptions(this) as IndexLoaderOptions
@@ -86,26 +93,14 @@ export default function loader(this: webpack.loader.LoaderContext, content: stri
     if (isMapTarget(t)) {
       return {
         ...basic,
-        json: require(t.mapFile),
-        rootDir: t.rootDir || path.dirname(t.mapFile)
+        getJson: (targetName: string) => require(getMapTargetMapFile(t, targetName)),
+        getRootDir: (targetName: string) => t.rootDir || path.dirname(getMapTargetMapFile(t, targetName))
       }
     } else if (isModuleTarget(t)) {
-      const rootDir = path.dirname(t.entryFile)
-      const useCache = t.cache !== false
-      let json: ReturnType<typeof index2json> | null = null
-      const cacheFile = t.cacheFile || path.join(rootDir, 'index-json.cache')
-      if (useCache) {
-        const cacheJson = getCacheJson(cacheFile)
-        if (cacheJson) json = cacheJson
-      }
-      if (!json) {
-        json = index2json(t.entryFile, { module: t.entryModule })
-        if (useCache) setCacheJson(cacheFile, json)
-      }
       return {
         ...basic,
-        json,
-        rootDir
+        getJson: (targetName: string) => getModuleTargetJson(t, targetName),
+        getRootDir: (targetName: string) => path.dirname(getModuleTargetEntryFile(t, targetName))
       }
     } else {
       throw new Error(`Config ${JSON.stringify(t)} lack "mapFile" or "entryFile" field`)
@@ -114,24 +109,53 @@ export default function loader(this: webpack.loader.LoaderContext, content: stri
   return replaceAll(this.resourcePath, content, allTargets)
 }
 
+function getModuleTargetJson(t: ModuleTarget, targetName: string) {
+  let json: ReturnType<typeof index2json> | null = null
+  const entryFile = getModuleTargetEntryFile(t, targetName)
+  if (JSON_MEMORY_CACHE[entryFile]) return JSON_MEMORY_CACHE[entryFile]
+
+  const rootDir = path.dirname(entryFile)
+  const useCache = t.cache !== false
+  const cacheFile = t.cacheFile || path.join(rootDir, `index-json.${targetName.replace(/\//g, '-')}.cache`)
+  if (useCache) {
+    const cacheJson = getCacheJson(cacheFile)
+    if (cacheJson) json = cacheJson
+  }
+  if (!json) {
+    json = index2json(entryFile, { module: t.entryModule })
+    if (useCache) setCacheJson(cacheFile, json)
+  }
+
+  JSON_MEMORY_CACHE[entryFile] = json
+  return json
+}
+function getModuleTargetEntryFile(t: ModuleTarget, targetName: string) {
+  return typeof t.entryFile === 'function' ? t.entryFile(targetName) : t.entryFile
+}
+function getMapTargetMapFile(t: MapTarget, targetName: string) {
+  return typeof t.mapFile === 'function' ? t.mapFile(targetName) : t.mapFile
+}
+
 function replaceAll(contextFile: string, content: string, targets: ResolvedTarget[]) {
   return targets.reduce((result: string, target) => {
     const regexp = getExportImportExpReg(target.name)
 
     return result.replace(
       regexp,
-      (raw: string, preSpaces: string, inOut: string, namedObject: string, quote: string) => {
-        const map = target.json
+      (raw: string, preSpaces: string, inOut: string, namedObject: string, quote: string, targetName: string) => {
+        const json = target.getJson(targetName)
+        const rootDir = target.getRootDir(targetName)
+
         const result: { [src: string]: string[] } = {}
         parseNamedObject(namedObject).forEach(obj => {
-          if (!map.hasOwnProperty(obj.key)) {
-            throw new Error(`There is no "${obj.key}" module in package "${target.name}"`)
+          if (!json.hasOwnProperty(obj.key)) {
+            throw new Error(`There is no "${obj.key}" module in package "${targetName}"`)
           }
-          let [unixPath, alias] = map[obj.key].split('~')
-          let requiredFile = path.resolve(target.rootDir, ...unixPath.split('/'))
+          let [unixPath, alias] = json[obj.key].split('~')
+          let requiredFile = path.resolve(rootDir, ...unixPath.split('/'))
           if (unixPath.endsWith('/')) requiredFile += path.sep
 
-          let requirePath = getRequiredPath(obj.key, contextFile, requiredFile, target)
+          let requirePath = target.getRequiredPath(obj.key, targetName, contextFile, requiredFile, target)
 
           const from = alias || obj.key
           const to = obj.as || obj.key
@@ -201,13 +225,18 @@ function debug(msg: string) {
 function slash(str: string) {
   return str.replace(/\\/g, '/')
 }
-function getRequiredPath(importedKey: string, contextFile: string, requiredFile: string, target: ResolvedTarget) {
+function getRequiredPath(
+  importedKey: string,
+  importFrom: string,
+  contextFile: string,
+  requiredFile: string
+  // target: ResolvedTarget
+) {
   // 优先使用相对路径
 
   // 先判断是不是在 node_modules 中
   let requirePath = slash(requiredFile)
-  const { name } = target
-  const index = requirePath.indexOf(`/node_modules/${name}/`)
+  const index = requirePath.indexOf(`/node_modules/${importFrom}/`)
   if (index >= 0) {
     requirePath = requirePath.substr(index + '/node_modules/'.length)
     return requirePath

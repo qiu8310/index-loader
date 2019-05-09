@@ -1,4 +1,4 @@
-import loader, { ModuleTarget } from '../loader'
+import loader, { ModuleTarget, JSON_MEMORY_CACHE } from '../loader'
 import webpack = require('webpack')
 import os = require('os')
 import fs = require('fs')
@@ -30,6 +30,8 @@ function transformTest(from: string, to: string, ctx?: any) {
 }
 
 describe('antd', () => {
+  beforeEach(() => Object.keys(JSON_MEMORY_CACHE).forEach(k => delete JSON_MEMORY_CACHE[k]))
+
   test('single component', () => {
     transformTest('import { Button } from "antd"', 'import { default as Button } from "antd/es/button/button"')
     transformTest('import { Affix } from "antd"', 'import { default as Affix } from "antd/es/affix/index"')
@@ -42,6 +44,25 @@ describe('antd', () => {
       'import { Button, Affix } from "antd"',
       'import { default as Button } from "antd/es/button/button"\nimport { default as Affix } from "antd/es/affix/index"'
     )
+  })
+
+  test('regexp name', () => {
+    const ctx = getContext({
+      name: '.*',
+      entryFile: name => path.join(root, ...`node_modules/${name}/es/index.js`.split('/'))
+    })
+    transformTest('import { Button } from "antd"', 'import { default as Button } from "antd/es/button/button"', ctx)
+  })
+
+  test('getRequiredPath', () => {
+    const ctx = getContext({
+      getRequiredPath: (key, name, contextFile, requiredFile) => {
+        expect(contextFile).toEqual(contextFile)
+        expect(requiredFile.includes('antd/es/button/button')).toEqual(true)
+        return `${name}/${key.toLowerCase()}`
+      }
+    })
+    transformTest('import { Button } from "antd"', 'import { default as Button } from "antd/button"', ctx)
   })
 
   test('set cache', () => {

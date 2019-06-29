@@ -63,7 +63,9 @@ interface BaseTarget {
   ) => string
 }
 export interface MapTarget extends BaseTarget {
-  mapFile: string
+  /** 如果没有映射文件，则需要指定 rootDir 和 getRequiredPath */
+  mapFile?: string
+  mapJson?: {[key: string]: string}
   /** 项目根目录，默认使用 mapFile 的目录 */
   rootDir?: string
 }

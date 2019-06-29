@@ -38,7 +38,8 @@ interface BaseTarget {
   ) => string
 }
 export interface MapTarget extends BaseTarget {
-  mapFile: string | ((targetName: string) => string)
+  mapFile?: string | ((targetName: string) => string)
+  mapJson?: { [key: string]: string }
   /** 项目根目录，默认使用 mapFile 的目录 */
   rootDir?: string
 }
@@ -93,8 +94,15 @@ export default function loader(this: webpack.loader.LoaderContext, content: stri
     if (isMapTarget(t)) {
       return {
         ...basic,
-        getJson: (targetName: string) => require(getMapTargetMapFile(t, targetName)),
-        getRootDir: (targetName: string) => t.rootDir || path.dirname(getMapTargetMapFile(t, targetName))
+        getJson: (targetName: string) => {
+          const mapFile = getMapTargetMapFile(t, targetName)
+          return mapFile ? require(mapFile) : t.mapJson || {}
+        },
+        getRootDir: (targetName: string) => {
+          if (t.rootDir) return t.rootDir
+          const mapFile = getMapTargetMapFile(t, targetName)
+          return mapFile ? path.dirname(mapFile) : ''
+        }
       }
     } else if (isModuleTarget(t)) {
       return {
@@ -144,7 +152,7 @@ function replaceAll(contextFile: string, content: string, targets: ResolvedTarge
       regexp,
       (raw: string, preSpaces: string, inOut: string, namedObject: string, quote: string, targetName: string) => {
         const json = target.getJson(targetName)
-        const rootDir = target.getRootDir(targetName)
+        const rootDir = target.getRootDir(targetName) || require.resolve(targetName, { paths: [process.cwd()] })
 
         const result: { [src: string]: string[] } = {}
         parseNamedObject(namedObject).forEach(obj => {
